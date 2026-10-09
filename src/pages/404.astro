@@ -1,8 +1,10 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
+import { ogImagePath } from '../seo';
+import { byManifest } from '../site';
 
-const pages = await getCollection('pages');
+const pages = byManifest(await getCollection('pages'));
 const version = pages[0]?.data.version;
 if (version === undefined)
   throw new Error('404: no pages to take the version from');
@@ -11,7 +13,15 @@ const sections = pages.filter(
 );
 ---
 
-<Base title="Page not found · raw2md" route="/404/" version={version}>
+<Base
+  title="Page not found · raw2md"
+  description="The page does not exist. The main sections of the raw2md site."
+  route="/404/"
+  version={version}
+  image={ogImagePath({ id: 'index' })}
+  type="website"
+  noindex
+>
   <main id="main" class="wrap">
     <div class="sec sec-plain nf">
       <div class="sec-label">

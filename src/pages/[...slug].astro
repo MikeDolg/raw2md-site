@@ -3,9 +3,11 @@ import type { GetStaticPaths } from 'astro';
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import Toc from '../components/Toc.astro';
 import Base from '../layouts/Base.astro';
+import { articleLd, ogImagePath, twinPath } from '../seo';
+import { byManifest, sitePages } from '../site';
 
 export const getStaticPaths = (async () => {
-  const pages = await getCollection('pages');
+  const pages = byManifest(await getCollection('pages'));
   const docs = pages.filter((p) => p.data.route.startsWith('/docs/'));
   return pages
     .filter((page) => page.id !== 'index')
@@ -31,13 +33,22 @@ const prev = inDocs ? docs[at - 1] : undefined;
 const next = inDocs ? docs[at + 1] : undefined;
 const docsIndex = docs.find((p) => p.data.route === '/docs/');
 const children = isIndex ? docs.filter((p) => p.id !== page.id) : [];
+
+if (!Astro.site) throw new Error('astro.config.mjs: no site');
+const all = await sitePages();
+const info = all.find((p) => p.id === page.id);
+if (!info) throw new Error(`${route}: not in the site pages`);
 ---
 
 <Base
   title={`${title} · raw2md`}
+  description={page.data.summary}
   route={route}
   version={version}
-  twin={`/${page.id}.md`}
+  image={ogImagePath(page)}
+  type="article"
+  twin={twinPath(page)}
+  jsonLd={articleLd(info, all, Astro.site)}
 >
   <div class:list={['wrap', 'doc', { 'doc-single': !hasToc }]}>
     <main id="main" class="doc-main">
@@ -54,7 +65,7 @@ const children = isIndex ? docs.filter((p) => p.id !== page.id) : [];
             </li>
           </ol>
         </nav>
-        <a class="md-link" href={`/${page.id}.md`}>
+        <a class="md-link" href={twinPath(page)}>
           View as Markdown
         </a>
       </div>

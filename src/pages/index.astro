@@ -2,6 +2,8 @@
 import { getEntry, render } from 'astro:content';
 import { home, inline, sectionLabel, splitSections } from '../home';
 import Base from '../layouts/Base.astro';
+import { ogImagePath, softwareLd } from '../seo';
+import { appInfo } from '../site';
 
 const page = await getEntry('pages', 'index');
 if (!page?.rendered) throw new Error('home: the index page is not rendered');
@@ -10,13 +12,19 @@ const { intro, sections } = splitSections(page.rendered.html);
 const { headings } = await render(page);
 const headingText = new Map(headings.map((h) => [h.slug, h.text]));
 const number = (i: number) => String(i).padStart(2, '0');
+if (!Astro.site) throw new Error('astro.config.mjs: no site');
+const app = await appInfo();
 ---
 
 <Base
-  title="raw2md: clean Markdown from PDF, DjVu, and DOCX"
+  title={`raw2md: ${home.headline}`}
+  description={page.data.summary}
   route="/"
   version={version}
+  image={ogImagePath(page)}
+  type="website"
   twin="/index.md"
+  jsonLd={[softwareLd(app, Astro.site)]}
 >
   <main id="main" class="wrap">
     <section class="hero" aria-labelledby="hero-title">

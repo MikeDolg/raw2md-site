@@ -4,9 +4,11 @@ import text from './home.yaml?raw';
 
 const Home = z.strictObject({
   tagline: z.string(),
+  headline: z.string(),
   install: z.string(),
   facts: z.array(z.string()),
   intro: z.string(),
+  app: z.strictObject({ operatingSystem: z.string(), license: z.string() }),
   labels: z.record(z.string(), z.string()),
   faq: z.array(z.strictObject({ question: z.string(), answer: z.string() })),
 });

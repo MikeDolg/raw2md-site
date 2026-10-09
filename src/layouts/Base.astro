@@ -1,16 +1,37 @@
 ---
 import '../styles/site.css';
+import { OG_HEIGHT, OG_WIDTH, PYPI, REPO, absolute, scriptJson } from '../seo';
 
 interface Props {
   title: string;
+  description: string;
   /** Route of the page, for the current item of the navigation. */
   route: string;
   version: string;
+  /** Path of the OpenGraph image. */
+  image: string;
+  type: 'website' | 'article';
   /** Path of the Markdown twin, when the page has one. */
   twin?: string | undefined;
+  jsonLd?: object[];
+  /** A page outside the index: no canonical address, and `noindex`. */
+  noindex?: boolean;
 }
 
-const { title, route, version, twin } = Astro.props;
+const {
+  title,
+  description,
+  route,
+  version,
+  image,
+  type,
+  twin,
+  jsonLd = [],
+  noindex = false,
+} = Astro.props;
+if (!Astro.site) throw new Error('astro.config.mjs: no site');
+const site = Astro.site;
+const url = absolute(route, site);
 
 const nav = [
   { href: '/', label: 'Home' },
@@ -26,9 +47,6 @@ function current(href: string): 'page' | 'true' | undefined {
   if (href !== '/' && route.startsWith(href)) return 'true';
   return undefined;
 }
-
-const REPO = 'https://github.com/MikeDolg/raw2md';
-const PYPI = 'https://pypi.org/project/raw2md/';
 ---
 
 <!doctype html>
@@ -37,7 +55,26 @@ const PYPI = 'https://pypi.org/project/raw2md/';
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex ? (
+      <meta name="robots" content="noindex" />
+    ) : (
+      <link rel="canonical" href={url} />
+    )}
     {twin && <link rel="alternate" type="text/markdown" href={twin} />}
+    <meta property="og:type" content={type} />
+    <meta property="og:site_name" content="raw2md" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {!noindex && <meta property="og:url" content={url} />}
+    <meta property="og:image" content={absolute(image, site)} />
+    <meta property="og:image:width" content={String(OG_WIDTH)} />
+    <meta property="og:image:height" content={String(OG_HEIGHT)} />
+    <meta property="og:image:alt" content={title} />
+    <meta name="twitter:card" content="summary_large_image" />
+    {jsonLd.map((item) => (
+      <script type="application/ld+json" set:html={scriptJson(item)} />
+    ))}
     <script is:inline>
       // Sets the stored theme before the first paint, then handles the theme switch and the Copy buttons.
       (function () {

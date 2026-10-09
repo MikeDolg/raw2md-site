@@ -216,7 +216,7 @@ function render(draft: Draft, linker: Linker): Page {
     route: draft.spec.route,
     title: draft.title,
     source: draft.file,
-    summary: summary(markdown),
+    summary: draft.spec.summary ?? summary(markdown),
     markdown: `${markdown}\n`,
   };
 }
