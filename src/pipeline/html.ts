@@ -71,7 +71,11 @@ function markNumbers(table: Readonly<Element>, ctx: HastVisitorContext): void {
   }
 }
 
-function wrapTable(table: Readonly<Element>, ctx: HastVisitorContext): void {
+function wrapTable(
+  table: Readonly<Element>,
+  number: number,
+  ctx: HastVisitorContext,
+): void {
   markNumbers(table, ctx);
   const columns = elements(table, 'thead')
     .flatMap((s) => elements(s, 'tr'))
@@ -80,11 +84,10 @@ function wrapTable(table: Readonly<Element>, ctx: HastVisitorContext): void {
     .filter((t) => t !== '');
   ctx.wrapNode(
     table,
-    el('div', {
+    el('section', {
       className: ['table-box'],
       tabIndex: 0,
-      role: 'region',
-      ariaLabel: `Table: ${columns.join(', ')}`,
+      ariaLabel: `Table ${number}: ${columns.join(', ')}`,
     }),
   );
 }
@@ -135,13 +138,14 @@ function arrowList(list: Readonly<Element>, ctx: HastVisitorContext): void {
  */
 export const siteHtml: HastPluginEntry = () => {
   const slugger = new GithubSlugger();
+  let tables = 0;
   return {
     name: 'site-html',
     element: {
       filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'table', 'ul'],
       visit(node, ctx) {
         if (node.tagName === 'pre') return codeBlock(node, ctx);
-        if (node.tagName === 'table') return wrapTable(node, ctx);
+        if (node.tagName === 'table') return wrapTable(node, ++tables, ctx);
         if (node.tagName === 'ul') return arrowList(node, ctx);
         const existing = node.properties['id'];
         const id =

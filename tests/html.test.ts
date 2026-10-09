@@ -27,8 +27,15 @@ describe('siteHtml', () => {
   it('wraps a table in a focusable region named by its columns', async () => {
     const html = await render('| Name | Note |\n|---|---|\n| a | b |\n');
     expect(html).toContain(
-      '<div class="table-box" tabindex="0" role="region" aria-label="Table: Name, Note"><table>',
+      '<section class="table-box" tabindex="0" aria-label="Table 1: Name, Note"><table>',
     );
+  });
+
+  it('numbers the tables of a page, so that every region name is unique', async () => {
+    const table = '| Name | Note |\n|---|---|\n| a | b |\n';
+    const html = await render(`${table}\n${table}`);
+    expect(html).toContain('aria-label="Table 1: Name, Note"');
+    expect(html).toContain('aria-label="Table 2: Name, Note"');
   });
 
   it('right-aligns a column of numbers and placeholders only', async () => {

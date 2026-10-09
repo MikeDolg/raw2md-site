@@ -16,7 +16,11 @@
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run --passWithNoTests",
-    "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format:check && npm run test && npm run build"
+    "check:dist": "node scripts/check-dist.ts",
+    "check:html": "html-validate dist",
+    "check:links": "lychee --offline --include-fragments --index-files index.html --root-dir dist dist",
+    "check:lighthouse": "lhci autorun",
+    "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format:check && npm run test && npm run build && npm run check:dist && npm run check:html && npm run check:links && npm run check:lighthouse"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "0.4.3",
@@ -29,12 +33,14 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@eslint/js": "10.0.1",
+    "@lhci/cli": "0.15.1",
     "@types/hast": "3.0.5",
     "@types/mdast": "4.0.4",
     "@types/node": "22.20.4",
     "eslint": "10.12.0",
     "eslint-plugin-astro": "3.2.1",
     "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "html-validate": "11.16.2",
     "postcss-html": "2.0.0",
     "prettier": "3.9.9",
     "prettier-plugin-astro": "1.1.1",

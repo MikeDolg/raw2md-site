@@ -1,0 +1,7 @@
+{
+  "extends": ["html-validate:recommended"],
+  "root": true,
+  "rules": {
+    "valid-id": ["error", { "relaxed": true }]
+  }
+}
