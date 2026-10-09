@@ -1,0 +1,43 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+
+export const getStaticPaths = (async () => {
+  const pages = await getCollection('pages');
+  return pages.map((page) => ({
+    params: { slug: page.id === 'index' ? undefined : page.id },
+    props: { page },
+  }));
+}) satisfies GetStaticPaths;
+
+interface Props {
+  page: CollectionEntry<'pages'>;
+}
+
+const { page } = Astro.props;
+const { Content } = await render(page);
+const twin = `/${page.id}.md`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{page.data.title}</title>
+    <link rel="alternate" type="text/markdown" href={twin} />
+  </head>
+  <body>
+    <main>
+      <h1>{page.data.title}</h1>
+      <Content />
+    </main>
+    <footer>
+      <p>
+        raw2md {page.data.version}
+        <a href="https://github.com/MikeDolg/raw2md">GitHub</a>
+        <a href="https://pypi.org/project/raw2md/">PyPI</a>
+      </p>
+    </footer>
+  </body>
+</html>
