@@ -6,6 +6,7 @@ import {
   applyEdits,
   isInside,
   outline,
+  summary,
   type Edit,
   type Outline,
   type Range,
@@ -18,6 +19,8 @@ export interface Page {
   route: string;
   title: string;
   source: string;
+  /** The first sentence of the page, for a list of pages. */
+  summary: string;
   markdown: string;
 }
 
@@ -213,6 +216,7 @@ function render(draft: Draft, linker: Linker): Page {
     route: draft.spec.route,
     title: draft.title,
     source: draft.file,
+    summary: summary(markdown),
     markdown: `${markdown}\n`,
   };
 }

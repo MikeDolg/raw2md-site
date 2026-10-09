@@ -10,6 +10,7 @@ import {
   twin,
   type Page,
 } from '../src/pipeline/pages';
+import { summary } from '../src/pipeline/markdown';
 
 const PYPROJECT =
   '[build-system]\nversion = "9"\n\n[project]\nname = "x"\nversion = "1.2.3"\n';
@@ -261,5 +262,21 @@ describe('buildSite', () => {
 describe('twin', () => {
   it('puts the title over the body', () => {
     expect(twin('Guide', 'Lead.\n')).toBe('# Guide\n\nLead.\n');
+  });
+});
+
+describe('summary', () => {
+  it('takes the first sentence of the first paragraph as plain text', () => {
+    expect(
+      summary('## Head\n\nThe `cleaning` stage\nruns first. Then more.\n'),
+    ).toBe('The cleaning stage runs first.');
+  });
+
+  it('takes a whole paragraph without a sentence end', () => {
+    expect(summary('Just words')).toBe('Just words');
+  });
+
+  it('gives an empty summary to a text without a paragraph', () => {
+    expect(summary('## Only a heading\n')).toBe('');
   });
 });

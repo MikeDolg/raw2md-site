@@ -15,6 +15,7 @@ async function load({ store, parseData, renderMarkdown }: LoaderContext) {
         route: page.route,
         title: page.title,
         source: page.source,
+        summary: page.summary,
         version: site.version,
       },
     });
@@ -49,6 +50,7 @@ const pages = defineCollection({
     route: z.string(),
     title: z.string(),
     source: z.string(),
+    summary: z.string(),
     version: z.string(),
   }),
 });

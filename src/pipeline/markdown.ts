@@ -176,3 +176,13 @@ export function applyEdits(
 export function isInside(offset: number, ranges: Range[]): boolean {
   return ranges.some((r) => offset >= r.start && offset < r.end);
 }
+
+/** The first sentence of the first root paragraph, as plain text. */
+export function summary(text: string): string {
+  const root = markdownToMdast(text) as Root;
+  const paragraph = root.children.find((node) => node.type === 'paragraph');
+  if (!paragraph) return '';
+  const plain = plainText(paragraph).replace(/\s+/g, ' ').trim();
+  const end = plain.search(/[.!?](\s|$)/);
+  return end === -1 ? plain : plain.slice(0, end + 1);
+}

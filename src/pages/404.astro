@@ -1,0 +1,47 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+
+const pages = await getCollection('pages');
+const version = pages[0]?.data.version;
+if (version === undefined)
+  throw new Error('404: no pages to take the version from');
+const sections = pages.filter(
+  (p) => p.data.route !== '/' && p.data.route.split('/').length === 3,
+);
+---
+
+<Base title="Page not found · raw2md" route="/404/" version={version}>
+  <main id="main" class="wrap">
+    <div class="sec sec-plain nf">
+      <div class="sec-label">
+        <b>404</b>Not found
+      </div>
+      <div class="sec-body">
+        <p class="nf-code" aria-hidden="true">
+          404
+        </p>
+        <h1>This page does not exist</h1>
+        <p>
+          The address may be mistyped, or the page has moved. Every page also
+          has a Markdown copy at the same address with <code>.md</code> at the
+          end.
+        </p>
+        <p>
+          <a class="btn btn-primary" href="/">
+            Go to the home page
+          </a>
+        </p>
+        <h2 class="list-title">Main sections</h2>
+        <ul class="doc-list">
+          {sections.map((p) => (
+            <li>
+              <a href={p.data.route}>{p.data.title}</a>
+              <p>{p.data.summary}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </main>
+</Base>

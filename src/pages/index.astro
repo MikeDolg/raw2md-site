@@ -1,0 +1,93 @@
+---
+import { getEntry, render } from 'astro:content';
+import { home, inline, sectionLabel, splitSections } from '../home';
+import Base from '../layouts/Base.astro';
+
+const page = await getEntry('pages', 'index');
+if (!page?.rendered) throw new Error('home: the index page is not rendered');
+const { version } = page.data;
+const { intro, sections } = splitSections(page.rendered.html);
+const { headings } = await render(page);
+const headingText = new Map(headings.map((h) => [h.slug, h.text]));
+const number = (i: number) => String(i).padStart(2, '0');
+---
+
+<Base
+  title="raw2md: clean Markdown from PDF, DjVu, and DOCX"
+  route="/"
+  version={version}
+  twin="/index.md"
+>
+  <main id="main" class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-meta">
+        <ul>
+          <li>raw2md {version}</li>
+          {home.facts.map((fact) => (
+            <li>{fact}</li>
+          ))}
+        </ul>
+      </div>
+      <div class="hero-main">
+        <img
+          class="hero-logo"
+          src="/raw2md-logo.svg"
+          alt="raw2md"
+          width="380"
+          height="100"
+        />
+        <h1 id="hero-title">{home.tagline}</h1>
+        <div class="code code-xl">
+          <div class="code-head">
+            <span>bash · install</span>
+            <button class="copy" type="button" hidden>
+              Copy
+            </button>
+          </div>
+          <pre><code>{home.install}</code></pre>
+        </div>
+        <div class="actions">
+          <a class="btn btn-primary" href="/docs/">
+            Read the docs
+          </a>
+          <a class="btn" href="https://github.com/MikeDolg/raw2md">
+            GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <div class="ruled">
+      <section class="sec" aria-label={home.intro}>
+        <div class="sec-label">
+          <b>{number(0)}</b>
+          {home.intro}
+        </div>
+        <div class="sec-body prose" set:html={intro} />
+      </section>
+      {sections.map((section, i) => (
+        <section class="sec" aria-labelledby={section.id}>
+          <div class="sec-label">
+            <b>{number(i + 1)}</b>
+            {sectionLabel(headingText.get(section.id) ?? section.id)}
+          </div>
+          <div class="sec-body prose" set:html={section.html} />
+        </section>
+      ))}
+      <section class="sec" aria-labelledby="faq">
+        <div class="sec-label">
+          <b>{number(sections.length + 1)}</b>FAQ
+        </div>
+        <div class="sec-body faq">
+          <h2 id="faq">Questions</h2>
+          {home.faq.map((item) => (
+            <>
+              <h3>{item.question}</h3>
+              <p set:html={inline(item.answer)} />
+            </>
+          ))}
+        </div>
+      </section>
+    </div>
+  </main>
+</Base>

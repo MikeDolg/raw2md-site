@@ -1,0 +1,35 @@
+---
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+}
+
+interface Item {
+  heading: MarkdownHeading;
+  children: MarkdownHeading[];
+}
+
+const items: Item[] = [];
+for (const heading of Astro.props.headings) {
+  if (heading.depth === 2) items.push({ heading, children: [] });
+  else if (heading.depth === 3) items.at(-1)?.children.push(heading);
+}
+---
+
+<ol>
+  {items.map(({ heading, children }) => (
+    <li>
+      <a href={`#${heading.slug}`}>{heading.text}</a>
+      {children.length > 0 && (
+        <ol>
+          {children.map((child) => (
+            <li>
+              <a href={`#${child.slug}`}>{child.text}</a>
+            </li>
+          ))}
+        </ol>
+      )}
+    </li>
+  ))}
+</ol>

@@ -1,43 +1,110 @@
 ---
 import type { GetStaticPaths } from 'astro';
 import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Toc from '../components/Toc.astro';
+import Base from '../layouts/Base.astro';
 
 export const getStaticPaths = (async () => {
   const pages = await getCollection('pages');
-  return pages.map((page) => ({
-    params: { slug: page.id === 'index' ? undefined : page.id },
-    props: { page },
-  }));
+  const docs = pages.filter((p) => p.data.route.startsWith('/docs/'));
+  return pages
+    .filter((page) => page.id !== 'index')
+    .map((page) => ({ params: { slug: page.id }, props: { page, docs } }));
 }) satisfies GetStaticPaths;
 
 interface Props {
   page: CollectionEntry<'pages'>;
+  /** The pages under `/docs/`, in the order of the manifest. */
+  docs: CollectionEntry<'pages'>[];
 }
 
-const { page } = Astro.props;
-const { Content } = await render(page);
-const twin = `/${page.id}.md`;
+const { page, docs } = Astro.props;
+const { Content, headings } = await render(page);
+const { title, route, version } = page.data;
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const hasToc = toc.filter((h) => h.depth === 2).length >= 2;
+
+const isIndex = route === '/docs/';
+const inDocs = route.startsWith('/docs/') && !isIndex;
+const at = docs.findIndex((p) => p.id === page.id);
+const prev = inDocs ? docs[at - 1] : undefined;
+const next = inDocs ? docs[at + 1] : undefined;
+const docsIndex = docs.find((p) => p.data.route === '/docs/');
+const children = isIndex ? docs.filter((p) => p.id !== page.id) : [];
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{page.data.title}</title>
-    <link rel="alternate" type="text/markdown" href={twin} />
-  </head>
-  <body>
-    <main>
-      <h1>{page.data.title}</h1>
-      <Content />
+<Base
+  title={`${title} · raw2md`}
+  route={route}
+  version={version}
+  twin={`/${page.id}.md`}
+>
+  <div class:list={['wrap', 'doc', { 'doc-single': !hasToc }]}>
+    <main id="main" class="doc-main">
+      <div class="crumbs">
+        <nav aria-label="Breadcrumb">
+          <ol>
+            {inDocs && docsIndex && (
+              <li>
+                <a href={docsIndex.data.route}>{docsIndex.data.title}</a>
+              </li>
+            )}
+            <li>
+              <span aria-current="page">{title}</span>
+            </li>
+          </ol>
+        </nav>
+        <a class="md-link" href={`/${page.id}.md`}>
+          View as Markdown
+        </a>
+      </div>
+      <article class="prose">
+        <h1>{title}</h1>
+        {hasToc && (
+          <details class="toc-mobile">
+            <summary>On this page</summary>
+            <Toc headings={toc} />
+          </details>
+        )}
+        <Content />
+        {children.length > 0 && (
+          <>
+            <h2 class="list-title">Documents</h2>
+            <ul class="doc-list">
+              {children.map((child) => (
+                <li>
+                  <a href={child.data.route}>{child.data.title}</a>
+                  <p>{child.data.summary}</p>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </article>
+      {(prev || next) && (
+        <nav class="pager" aria-label="Previous and next">
+          {prev && (
+            <a href={prev.data.route} rel="prev">
+              <span>← Previous</span>
+              <strong>{prev.data.title}</strong>
+            </a>
+          )}
+          {next && (
+            <a class="next" href={next.data.route} rel="next">
+              <span>Next →</span>
+              <strong>{next.data.title}</strong>
+            </a>
+          )}
+        </nav>
+      )}
     </main>
-    <footer>
-      <p>
-        raw2md {page.data.version}
-        <a href="https://github.com/MikeDolg/raw2md">GitHub</a>
-        <a href="https://pypi.org/project/raw2md/">PyPI</a>
-      </p>
-    </footer>
-  </body>
-</html>
+    {hasToc && (
+      <aside class="toc" aria-labelledby="toc-title">
+        <p class="toc-title" id="toc-title">
+          On this page
+        </p>
+        <Toc headings={toc} />
+      </aside>
+    )}
+  </div>
+</Base>

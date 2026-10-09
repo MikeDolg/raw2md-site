@@ -1,0 +1,34 @@
+# The hand-written parts of the home page. The rest comes from README.md.
+tagline: >-
+  Convert PDF, DjVu, and DOCX into clean Markdown for RAG and LLM pipelines,
+  with deterministic repair of converter defects.
+install: uv tool install raw2md --torch-backend cu130
+facts:
+  - Python CLI
+  - Linux · Windows
+  - MIT
+intro: Overview
+# The label column of each README section, by its heading.
+labels:
+  What does raw2md fix?: Repairs
+  Why raw2md?: Design
+  What's the impact?: Benchmark
+  How does it work?: Stages
+  What languages are supported?: Languages
+faq:
+  - question: Does raw2md need a GPU?
+    answer: >-
+      For `marker`, yes: an NVIDIA GPU of the Turing generation or newer
+      (GTX 16xx, RTX 20xx, and later cards) with driver 580 or newer. Without
+      such a card, `marker` runs on the CPU. This mode is very slow, and
+      raw2md does not support it.
+  - question: Do my documents leave my machine?
+    answer: >-
+      Not without the LLM stages. Inspection sends the source pages and the
+      recognized text to the provider, `-e` sends the page images, and
+      post-processing sends fragments of the text.
+  - question: Does the same input always give the same output?
+    answer: >-
+      The cleaning does. It uses deterministic rules, and a second pass
+      changes nothing. An ambiguous defect stays in the text and goes into
+      the findings.

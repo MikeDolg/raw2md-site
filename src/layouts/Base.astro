@@ -1,0 +1,190 @@
+---
+import '../styles/site.css';
+
+interface Props {
+  title: string;
+  /** Route of the page, for the current item of the navigation. */
+  route: string;
+  version: string;
+  /** Path of the Markdown twin, when the page has one. */
+  twin?: string | undefined;
+}
+
+const { title, route, version, twin } = Astro.props;
+
+const nav = [
+  { href: '/', label: 'Home' },
+  { href: '/install/', label: 'Install' },
+  { href: '/quickstart/', label: 'Quick start' },
+  { href: '/docs/', label: 'Docs' },
+  { href: '/benchmarks/', label: 'Benchmarks' },
+  { href: '/examples/', label: 'Examples' },
+];
+
+function current(href: string): 'page' | 'true' | undefined {
+  if (href === route) return 'page';
+  if (href !== '/' && route.startsWith(href)) return 'true';
+  return undefined;
+}
+
+const REPO = 'https://github.com/MikeDolg/raw2md';
+const PYPI = 'https://pypi.org/project/raw2md/';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {twin && <link rel="alternate" type="text/markdown" href={twin} />}
+    <script is:inline>
+      // Sets the stored theme before the first paint, then handles the theme switch and the Copy buttons.
+      (function () {
+        const root = document.documentElement;
+        let stored = null;
+        try {
+          stored = localStorage.getItem('theme');
+        } catch (err) {
+          console.warn('raw2md: the theme choice is not readable', err);
+        }
+        if (stored === 'light' || stored === 'dark')
+          root.dataset.theme = stored;
+        document.addEventListener('DOMContentLoaded', function () {
+          document
+            .querySelectorAll('[data-theme-toggle], .copy')
+            .forEach(function (el) {
+              el.hidden = false;
+            });
+        });
+        document.addEventListener('click', function (ev) {
+          const toggle = ev.target.closest('[data-theme-toggle]');
+          if (toggle) {
+            const dark = root.dataset.theme
+              ? root.dataset.theme === 'dark'
+              : matchMedia('(prefers-color-scheme: dark)').matches;
+            const next = dark ? 'light' : 'dark';
+            root.dataset.theme = next;
+            try {
+              localStorage.setItem('theme', next);
+            } catch (err) {
+              console.warn('raw2md: the theme choice is not stored', err);
+            }
+            return;
+          }
+          const copy = ev.target.closest('.copy');
+          if (copy && navigator.clipboard) {
+            const text = copy
+              .closest('.code')
+              .querySelector('code').textContent;
+            navigator.clipboard.writeText(text).then(
+              function () {
+                copy.textContent = 'Copied';
+                setTimeout(function () {
+                  copy.textContent = 'Copy';
+                }, 1500);
+              },
+              function (err) {
+                console.warn('raw2md: copy failed', err);
+              },
+            );
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body class="site">
+    <a class="skip" href="#main">
+      Skip to content
+    </a>
+    <header class="site-header">
+      <div class="wrap header-row">
+        <a class="brand" href="/">
+          <img
+            src="/raw2md-logo.svg"
+            alt="raw2md home"
+            width="96"
+            height="25"
+          />
+        </a>
+        <nav aria-label="Main">
+          <ul class="nav">
+            {nav.map((item) => (
+              <li>
+                <a href={item.href} aria-current={current(item.href)}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div class="header-tools">
+          <a class="icon-btn" href={REPO}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+              ></path>
+            </svg>
+            <span class="sr-only">GitHub</span>
+          </a>
+          <a class="icon-btn" href={PYPI}>
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z"></path>
+              <path d="M3.5 7 12 11.5 20.5 7M12 11.5v10"></path>
+            </svg>
+            <span class="sr-only">PyPI</span>
+          </a>
+          <button
+            class="icon-btn"
+            type="button"
+            aria-label="Switch the color theme"
+            data-theme-toggle
+            hidden
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle
+                cx="12"
+                cy="12"
+                r="8.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+              ></circle>
+              <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <slot />
+
+    <footer class="site-footer">
+      <div class="wrap footer-row">
+        <span>raw2md {version}</span>
+        <ul>
+          <li>
+            <a href={REPO}>GitHub</a>
+          </li>
+          <li>
+            <a href={PYPI}>PyPI</a>
+          </li>
+          <li>
+            <a href={`${REPO}/blob/v${version}/LICENSE`}>MIT license</a>
+          </li>
+        </ul>
+        <p class="footer-note">
+          The raw2md name and logo are not covered by the MIT license.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
