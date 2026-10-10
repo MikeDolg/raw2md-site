@@ -646,6 +646,20 @@
   margin-bottom: var(--space-2);
 }
 
+.notice {
+  max-width: var(--measure);
+  margin: 0 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--step-minus-1);
+}
+
+.site .notice p:last-child {
+  margin-bottom: 0;
+}
+
 .site .anchor {
   margin-left: var(--space-2);
   color: var(--text-muted);

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { SourceSpec } from '../src/pipeline/manifest';
+import type { PageSpec, SourceSpec } from '../src/pipeline/manifest';
 import {
   buildSite,
   pageId,
@@ -268,6 +268,159 @@ describe('buildSite', () => {
       },
     ];
     expect(() => buildSite(tree(FILES), twice)).toThrow(/two pages at samples/);
+  });
+});
+
+const BOOK = `---
+version: 1
+issues:
+- headings
+---
+Cover text.
+
+# Preface
+
+Why.
+
+## Chapter 1
+
+### Intro
+
+Text with [terms](LICENSE.txt).
+
+#### Detail
+
+## Chapter 2
+
+Again.
+
+# Back
+
+The end.
+`;
+
+const WHOLE =
+  'The whole result is [book.md](https://github.com/MikeDolg/raw2md/blob/v1.2.3/samples/book.md) on GitHub.';
+
+const BOOK_SPEC: SourceSpec = {
+  file: 'samples/book.md',
+  pages: [
+    {
+      route: '/samples/book/',
+      title: 'Book',
+      summary: 'Two chapters of a book.',
+      notice: 'From [x](https://x.org), see [terms](LICENSE.txt).',
+      excerpts: ['Chapter 1', 'Back'],
+    },
+  ],
+};
+
+function bookSite(book = BOOK, spec = BOOK_SPEC, samples = 'Samples.\n') {
+  const files = {
+    ...FILES,
+    'samples/README.md': samples,
+    'samples/book.md': book,
+    'samples/LICENSE.txt': 'terms\n',
+  };
+  return buildSite(tree(files), [...SOURCES, spec]);
+}
+
+describe('buildSite with excerpts', () => {
+  it('lists the excerpts under the result header', () => {
+    const contents = page(bookSite().pages, '/samples/book/');
+    expect(contents.kind).toBe('contents');
+    expect(contents.title).toBe('Book');
+    expect(contents.markdown).toBe(
+      [
+        '```yaml',
+        'version: 1',
+        'issues:',
+        '- headings',
+        '```',
+        '',
+        'The site shows 2 parts of the result.',
+        '',
+        '1. [Chapter 1](/samples/book/part-1/)',
+        '2. [Back](/samples/book/part-2/)',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('shows the section of a heading and lifts the headings under it', () => {
+    const pages = bookSite().pages;
+    const chapter = page(pages, '/samples/book/part-1/');
+    expect(chapter.kind).toBe('part');
+    expect(chapter.title).toBe('Chapter 1');
+    expect(chapter.summary).toBe('Book, part 1 of 2: Chapter 1.');
+    expect(chapter.markdown).toBe(
+      '## Intro\n\nText with [terms](https://github.com/MikeDolg/raw2md/blob/v1.2.3/samples/LICENSE.txt).\n\n### Detail\n',
+    );
+    expect(page(pages, '/samples/book/part-2/').markdown).toBe('The end.\n');
+    const all = pages.map((p) => p.markdown).join('\n');
+    expect(all).not.toContain('Cover text.');
+    expect(all).not.toContain('Again.');
+  });
+
+  it('links the notice and the whole result on every page of the source', () => {
+    for (const p of bookSite().pages.filter((p) => p.kind !== 'doc'))
+      expect(p.notice).toBe(
+        `From [x](https://x.org), see [terms](https://github.com/MikeDolg/raw2md/blob/v1.2.3/samples/LICENSE.txt). ${WHOLE}`,
+      );
+  });
+
+  it('sends a link to the source to its contents and an anchor to its part', () => {
+    const samples = 'See [book](book.md) and [intro](book.md#intro).\n';
+    const index = page(bookSite(BOOK, BOOK_SPEC, samples).pages, '/samples/');
+    expect(index.markdown).toBe(
+      'See [book](/samples/book/) and [intro](/samples/book/part-1/#intro).\n',
+    );
+  });
+
+  function withPage(change: Partial<PageSpec>): SourceSpec {
+    return {
+      ...BOOK_SPEC,
+      pages: [{ ...(BOOK_SPEC.pages[0] as PageSpec), ...change }],
+    };
+  }
+
+  it.each([
+    [
+      'a missing',
+      BOOK.replace('## Chapter 1', '## Chapter One'),
+      /book\.md has no heading "Chapter 1"/,
+    ],
+    [
+      'a repeated',
+      `${BOOK}\n## Chapter 1\n`,
+      /book\.md repeats the heading "Chapter 1"/,
+    ],
+  ])('fails on %s excerpt heading', (_, book, error) => {
+    expect(() => bookSite(book)).toThrow(error);
+  });
+
+  it.each([
+    [
+      'out of the order of the source',
+      ['Chapter 1', 'Preface'],
+      'Preface',
+      'Chapter 1',
+    ],
+    [
+      'inside the one before it',
+      ['Preface', 'Chapter 1'],
+      'Chapter 1',
+      'Preface',
+    ],
+  ])('fails on an excerpt %s', (_, excerpts, name, before) => {
+    expect(() => bookSite(BOOK, withPage({ excerpts }))).toThrow(
+      `the excerpt "${name}" does not follow "${before}"`,
+    );
+  });
+
+  it('fails on excerpts with keep', () => {
+    const spec = withPage({ keep: ['Preface'] });
+    expect(() => bookSite(BOOK, spec)).toThrow(/excerpts go without keep/);
   });
 });
 

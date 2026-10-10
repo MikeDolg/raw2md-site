@@ -9,6 +9,8 @@ export interface Range {
 export interface Section extends Range {
   name: string;
   depth: number;
+  /** Where the body begins: after the heading and its blank lines. */
+  body: number;
 }
 
 export interface LinkTarget extends Range {
@@ -111,13 +113,14 @@ export function outline(text: string): Outline {
   }
 
   const headings: Heading[] = rest.map(({ node }) => node);
-  const sections = headings.map((heading, i) => {
+  const sections = rest.map(({ node: heading, index }, i) => {
     const next = headings.slice(i + 1).find((h) => h.depth <= heading.depth);
     return {
       name: plainText(heading),
       depth: heading.depth,
       start: startOf(heading),
       end: next ? startOf(next) : text.length,
+      body: blockRange(text, nodes, index).end,
     };
   });
 

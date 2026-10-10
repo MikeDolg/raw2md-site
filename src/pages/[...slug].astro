@@ -3,45 +3,67 @@ import type { GetStaticPaths } from 'astro';
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import Toc from '../components/Toc.astro';
 import Base from '../layouts/Base.astro';
-import { articleLd, ogImagePath, twinPath } from '../seo';
+import { articleLd, ogImagePath, trail, twinPath } from '../seo';
 import { byManifest, sitePages } from '../site';
 
 export const getStaticPaths = (async () => {
   const pages = byManifest(await getCollection('pages'));
-  const docs = pages.filter((p) => p.data.route.startsWith('/docs/'));
   return pages
     .filter((page) => page.id !== 'index')
-    .map((page) => ({ params: { slug: page.id }, props: { page, docs } }));
+    .map((page) => ({ params: { slug: page.id }, props: { page, pages } }));
 }) satisfies GetStaticPaths;
 
 interface Props {
   page: CollectionEntry<'pages'>;
-  /** The pages under `/docs/`, in the order of the manifest. */
-  docs: CollectionEntry<'pages'>[];
+  /** Every page, in the order of the manifest. */
+  pages: CollectionEntry<'pages'>[];
 }
 
-const { page, docs } = Astro.props;
+/** The route one level up: `/docs/` for `/docs/post/`, `/` for `/install/`. */
+function parentRoute(route: string): string | undefined {
+  if (route === '/') return undefined;
+  return route.replace(/[^/]+\/$/, '');
+}
+
+const { page, pages } = Astro.props;
 const { Content, headings } = await render(page);
-const { title, route, version } = page.data;
+const { title, route, version, kind, notice } = page.data;
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 const hasToc = toc.filter((h) => h.depth === 2).length >= 2;
 
-const isIndex = route === '/docs/';
-const inDocs = route.startsWith('/docs/') && !isIndex;
-const at = docs.findIndex((p) => p.id === page.id);
-const prev = inDocs ? docs[at - 1] : undefined;
-const next = inDocs ? docs[at + 1] : undefined;
-const docsIndex = docs.find((p) => p.data.route === '/docs/');
-const children = isIndex ? docs.filter((p) => p.id !== page.id) : [];
+// A page under a section steps through its siblings, after the section page.
+const parent = parentRoute(route);
+const parentPage = pages.find((p) => p.data.route === parent);
+const group =
+  parentPage && parent !== '/' && kind !== 'contents'
+    ? [
+        parentPage,
+        ...pages.filter(
+          (p) => parentRoute(p.data.route) === parent && p.data.kind === kind,
+        ),
+      ]
+    : [];
+const at = group.findIndex((p) => p.id === page.id);
+const prev = at > 0 ? group[at - 1] : undefined;
+const next = at >= 0 ? group[at + 1] : undefined;
+const children = pages.filter(
+  (p) => parentRoute(p.data.route) === route && p.data.kind !== 'part',
+);
+const listTitle = children.some((p) => p.data.kind === 'contents')
+  ? 'Read by part'
+  : 'Documents';
 
 if (!Astro.site) throw new Error('astro.config.mjs: no site');
 const all = await sitePages();
 const info = all.find((p) => p.id === page.id);
 if (!info) throw new Error(`${route}: not in the site pages`);
+const crumbs = trail(info, all).slice(1, -1);
+const pageTitle =
+  kind === 'doc' || !parentPage ? title : `${title} · ${parentPage.data.title}`;
 ---
 
 <Base
-  title={`${title} · raw2md`}
+  title={`${pageTitle} · raw2md`}
   description={page.data.summary}
   route={route}
   version={version}
@@ -49,17 +71,18 @@ if (!info) throw new Error(`${route}: not in the site pages`);
   type="article"
   twin={twinPath(page)}
   jsonLd={articleLd(info, all, Astro.site)}
+  noindex={kind !== 'doc'}
 >
   <div class:list={['wrap', 'doc', { 'doc-single': !hasToc }]}>
     <main id="main" class="doc-main">
       <div class="crumbs">
         <nav aria-label="Breadcrumb">
           <ol>
-            {inDocs && docsIndex && (
+            {crumbs.map((crumb) => (
               <li>
-                <a href={docsIndex.data.route}>{docsIndex.data.title}</a>
+                <a href={crumb.route}>{crumb.title}</a>
               </li>
-            )}
+            ))}
             <li>
               <span aria-current="page">{title}</span>
             </li>
@@ -71,6 +94,7 @@ if (!info) throw new Error(`${route}: not in the site pages`);
       </div>
       <article class="prose">
         <h1>{title}</h1>
+        {notice && <div class="notice" role="note" set:html={notice} />}
         {hasToc && (
           <details class="toc-mobile">
             <summary>On this page</summary>
@@ -80,7 +104,7 @@ if (!info) throw new Error(`${route}: not in the site pages`);
         <Content />
         {children.length > 0 && (
           <>
-            <h2 class="list-title">Documents</h2>
+            <h2 class="list-title">{listTitle}</h2>
             <ul class="doc-list">
               {children.map((child) => (
                 <li>

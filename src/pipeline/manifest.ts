@@ -9,6 +9,14 @@ export interface PageSpec {
   keep?: string[];
   /** With `keep`: also show the text before the first heading. */
   intro?: boolean;
+  /**
+   * Headings, at any level, whose sections the site shows as parts. The page
+   * lists the parts and links the whole source on GitHub; each part gets its
+   * own page outside the search index.
+   */
+  excerpts?: string[];
+  /** Markdown line over the page and its parts: the source and the license. */
+  notice?: string;
 }
 
 export interface SourceSpec {
@@ -18,6 +26,9 @@ export interface SourceSpec {
   drop?: string[];
   pages: PageSpec[];
 }
+
+const MARKER_LICENSE =
+  'The text is output of the `marker` models by Datalab, cleaned by raw2md, and the modified AI Pubs OpenRAIL-M license of the models applies to it: [MODEL_LICENSE](MODEL_LICENSE).';
 
 export const manifest: SourceSpec[] = [
   {
@@ -75,6 +86,32 @@ export const manifest: SourceSpec[] = [
         route: '/examples/',
         summary:
           'Complete raw2md results for a scanned book, a born-digital thesis, and a DOCX report, with the command and the time of each conversion.',
+      },
+    ],
+  },
+  {
+    file: 'examples/book.md',
+    pages: [
+      {
+        route: '/examples/book/',
+        title: 'Elementary Mechanism',
+        summary:
+          'The raw2md result for a scanned textbook of 1885, Elementary Mechanism by Woods and Stahl: three chapters.',
+        notice: `Source: Arthur T. Woods, Albert W. Stahl. *Elementary Mechanism: A Textbook for Students of Mechanical Engineering*. D. Van Nostrand, New York, 1885. [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Elementary_mechanism-_a_textbook_for_students_of_mechanical_engineering_(IA_cu31924031203742).pdf), Public Domain Mark. ${MARKER_LICENSE}`,
+        excerpts: ['CHAPTER I.', 'CHAPTER X.', 'CHAPTER XII.'],
+      },
+    ],
+  },
+  {
+    file: 'examples/thesis.md',
+    pages: [
+      {
+        route: '/examples/thesis/',
+        title: 'Deep Circular Excavation',
+        summary:
+          'The raw2md result for a born-digital PhD thesis of 2014 on the monitoring and modelling of a deep circular excavation: three chapters.',
+        notice: `Source: Tina Schwamb. *Performance Monitoring and Numerical Modelling of a Deep Circular Excavation*. PhD thesis, University of Cambridge, 2014. [University of Cambridge repository](https://www.repository.cam.ac.uk/items/04ec45a9-4b8b-4ece-b848-7806d4636412), CC0 1.0. ${MARKER_LICENSE}`,
+        excerpts: ['Chapter 1', 'Chapter 2', 'Chapter 6'],
       },
     ],
   },

@@ -8,10 +8,17 @@ import {
   outline,
   summary,
   type Edit,
+  type LinkTarget,
   type Outline,
   type Range,
   type Section,
 } from './markdown';
+
+/**
+ * `doc` is a page of the search index. `contents` lists the excerpts of a
+ * source, and `part` is one of them: both stay outside the index.
+ */
+export type PageKind = 'doc' | 'contents' | 'part';
 
 export interface Page {
   /** Collection id: `index` for `/`, `docs/cleaning` for `/docs/cleaning/`. */
@@ -22,6 +29,9 @@ export interface Page {
   /** The first sentence of the page, for a list of pages. */
   summary: string;
   markdown: string;
+  kind: PageKind;
+  /** Markdown line over the page: the source and the license of the text. */
+  notice?: string;
 }
 
 export interface Site {
@@ -36,13 +46,18 @@ const ROUTE = /^\/(?:[a-z0-9-]+\/)*$/;
 
 interface Draft {
   spec: PageSpec;
+  kind: PageKind;
   file: string;
   text: string;
   outline: Outline;
   title: string;
   deletions: Range[];
+  /** Heading marks that a part rewrites, so that its leading heading is level 1. */
+  shifts: Edit[];
   anchors: Set<string>;
 }
+
+const RESULT_HEADER = /^---\r?\n([\s\S]*?\r?\n)---\r?\n/;
 
 /** The public tree: `RAW2MD_DOCS_DIR`, or `../public` next to the site. */
 export function docsDir(): string {
@@ -78,14 +93,129 @@ function findSection(sections: Section[], name: string, file: string): Section {
   return found[0] as Section;
 }
 
-function draftSource(source: SourceSpec, text: string): Draft[] {
-  const doc = outline(text);
+/** Blanks the YAML header of a result in place, so that it parses as no Markdown. */
+function maskHeader(text: string): string {
+  const header = RESULT_HEADER.exec(text);
+  if (!header) return text;
+  return header[0].replace(/[^\r\n]/g, ' ') + text.slice(header[0].length);
+}
+
+function anchorsOf(doc: Outline, deletions: Range[]): Set<string> {
+  const slugger = new GithubSlugger();
+  return new Set(
+    doc.sections
+      .filter((s) => !isInside(s.start, deletions))
+      .map((s) => slugger.slug(s.name)),
+  );
+}
+
+function escapeLabel(text: string): string {
+  return text.replace(/[\\`*_[\]<>]/g, '\\$&');
+}
+
+/** The contents page of a source shown by excerpts, and a page for each excerpt. */
+function excerptDrafts(
+  source: SourceSpec,
+  spec: PageSpec,
+  excerpts: string[],
+  text: string,
+  doc: Outline,
+  version: string,
+): Draft[] {
+  if (spec.keep || spec.intro)
+    throw new Error(`${spec.route}: excerpts go without keep and intro`);
+  const title = spec.title ?? doc.title;
+  if (!title)
+    throw new Error(
+      `${spec.route}: no title in the manifest or ${source.file}`,
+    );
+  const parts = excerpts.map((name) =>
+    findSection(doc.sections, name, source.file),
+  );
+  parts.forEach((part, i) => {
+    const before = parts[i - 1];
+    if (before && part.start < before.end)
+      throw new Error(
+        `${source.file}: the excerpt "${part.name}" does not follow "${before.name}"`,
+      );
+  });
+
+  const name = path.posix.basename(source.file);
+  const whole = `The whole result is [${escapeLabel(name)}](${REPO}/blob/v${version}/${source.file}) on GitHub.`;
+  const notice = spec.notice === undefined ? whole : `${spec.notice} ${whole}`;
+  const titles = parts.map((part) => part.name.replace(/[.:]$/, ''));
+  const partRoute = (i: number) => `${spec.route}part-${i + 1}/`;
+  const header = RESULT_HEADER.exec(text);
+  const contentsText = [
+    ...(header ? [`\`\`\`yaml\n${header[1]}\`\`\``, ''] : []),
+    `The site shows ${parts.length} parts of the result.`,
+    '',
+    ...titles.map((t, i) => `${i + 1}. [${escapeLabel(t)}](${partRoute(i)})`),
+    '',
+  ].join('\n');
+  const contents: Draft = {
+    spec: { ...spec, notice },
+    kind: 'contents',
+    file: source.file,
+    text: contentsText,
+    outline: outline(contentsText),
+    title,
+    deletions: [],
+    shifts: [],
+    anchors: new Set(),
+  };
+
+  const drafts = parts.map((part, i): Draft => {
+    const deletions: Range[] = [
+      { start: 0, end: part.body },
+      { start: part.end, end: text.length },
+    ];
+    const shift = part.depth - 1;
+    const inside = doc.sections.filter(
+      (s) => s !== part && s.start >= part.start && s.start < part.end,
+    );
+    const shifts = (shift === 0 ? [] : inside).map((s) => {
+      if (!text.startsWith('#'.repeat(s.depth), s.start))
+        throw new Error(`${source.file}: "${s.name}" is not an ATX heading`);
+      return {
+        start: s.start,
+        end: s.start + s.depth,
+        text: '#'.repeat(s.depth - shift),
+      };
+    });
+    return {
+      spec: {
+        route: partRoute(i),
+        summary: `${title}, part ${i + 1} of ${parts.length}: ${titles[i]}.`,
+        notice,
+      },
+      kind: 'part',
+      file: source.file,
+      text,
+      outline: doc,
+      title: titles[i] ?? part.name,
+      deletions,
+      shifts,
+      anchors: anchorsOf(doc, deletions),
+    };
+  });
+  return [contents, ...drafts];
+}
+
+function draftSource(
+  source: SourceSpec,
+  text: string,
+  version: string,
+): Draft[] {
+  const doc = outline(maskHeader(text));
   const topSections = doc.sections.filter((s) => s.depth === doc.top);
   const dropped = (source.drop ?? []).map((name) =>
     findSection(doc.sections, name, source.file),
   );
   const kept = new Set<Section>();
-  const drafts = source.pages.map((spec) => {
+  const drafts = source.pages.flatMap((spec): Draft[] => {
+    if (spec.excerpts)
+      return excerptDrafts(source, spec, spec.excerpts, text, doc, version);
     const deletions: Range[] = [...doc.htmlBlocks, ...dropped];
     if (doc.titleRange) deletions.push(doc.titleRange);
     if (spec.keep) {
@@ -101,21 +231,19 @@ function draftSource(source: SourceSpec, text: string): Draft[] {
       throw new Error(
         `${spec.route}: no title in the manifest or ${source.file}`,
       );
-    const slugger = new GithubSlugger();
-    const anchors = new Set(
-      doc.sections
-        .filter((s) => !isInside(s.start, deletions))
-        .map((s) => slugger.slug(s.name)),
-    );
-    return {
-      spec,
-      file: source.file,
-      text,
-      outline: doc,
-      title,
-      deletions,
-      anchors,
-    };
+    return [
+      {
+        spec,
+        kind: 'doc',
+        file: source.file,
+        text,
+        outline: doc,
+        title,
+        deletions,
+        shifts: [],
+        anchors: anchorsOf(doc, deletions),
+      },
+    ];
   });
   if (source.pages.some((spec) => spec.keep)) {
     const lost = topSections.filter(
@@ -203,29 +331,48 @@ class Linker {
   }
 }
 
-function render(draft: Draft, linker: Linker): Page {
-  const replacements: Edit[] = [];
-  for (const link of draft.outline.links) {
-    if (isInside(link.start, draft.deletions)) continue;
+function linkEdits(links: LinkTarget[], draft: Draft, linker: Linker): Edit[] {
+  return links.flatMap((link) => {
+    if (isInside(link.start, draft.deletions)) return [];
     const url = linker.resolve(link.url, link.image, draft);
-    if (url !== undefined)
-      replacements.push({ start: link.start, end: link.end, text: url });
-  }
+    return url === undefined
+      ? []
+      : [{ start: link.start, end: link.end, text: url }];
+  });
+}
+
+function render(draft: Draft, linker: Linker): Page {
+  const replacements =
+    draft.kind === 'contents'
+      ? []
+      : [...draft.shifts, ...linkEdits(draft.outline.links, draft, linker)];
   const markdown = applyEdits(draft.text, draft.deletions, replacements).trim();
-  return {
+  const page: Page = {
     id: pageId(draft.spec.route),
     route: draft.spec.route,
     title: draft.title,
     source: draft.file,
     summary: draft.spec.summary ?? summary(markdown),
     markdown: `${markdown}\n`,
+    kind: draft.kind,
   };
+  const { notice } = draft.spec;
+  if (notice !== undefined) {
+    const links = outline(notice).links;
+    const edits = linkEdits(links, { ...draft, deletions: [] }, linker);
+    page.notice = applyEdits(notice, [], edits);
+  }
+  return page;
 }
 
 export function buildSite(dir: string, sources: SourceSpec[] = manifest): Site {
   const version = readVersion(dir);
   const drafts = sources.flatMap((source) =>
-    draftSource(source, fs.readFileSync(path.join(dir, source.file), 'utf8')),
+    draftSource(
+      source,
+      fs.readFileSync(path.join(dir, source.file), 'utf8'),
+      version,
+    ),
   );
   const ids = drafts.map((d) => pageId(d.spec.route));
   const twice = ids.find((id, i) => ids.indexOf(id) !== i);

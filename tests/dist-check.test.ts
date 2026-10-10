@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -13,6 +19,10 @@ function put(path: string, text: string) {
   const file = join(dist, path);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, text);
+}
+
+function read(path: string): string {
+  return readFileSync(join(dist, path), 'utf8');
 }
 
 function pageHtml(route: string): string {
@@ -69,6 +79,21 @@ describe('builtRoutes', () => {
     expect(builtRoutes(dist)).toEqual(ROUTES);
   });
 });
+
+function hiddenPage(route: string) {
+  const id = pageId(route);
+  put(
+    join(route, 'index.html'),
+    pageHtml(route)
+      .replace(/<link rel="canonical"[^>]*>/, '')
+      .replace(
+        '<head>',
+        '<head><meta name="robots" content="noindex, follow">',
+      ),
+  );
+  put(`${id}.md`, `# ${id}\n`);
+  put(`og/${id}.png`, 'png');
+}
 
 describe('checkDist', () => {
   it('accepts a site in which every page is complete', () => {
@@ -129,6 +154,46 @@ describe('checkDist', () => {
     expect(problems).toContain(
       `sitemap.xml: ${ORIGIN}/docs/post/ is not a built page`,
     );
+  });
+
+  it('accepts a noindex page that no list names', () => {
+    hiddenPage('/docs/post/part-1/');
+    expect(checkDist(dist)).toEqual([]);
+  });
+
+  it('reports a noindex page with a canonical link or in a list', () => {
+    const route = '/docs/post/part-1/';
+    hiddenPage(route);
+    const html = pageHtml(route).replace(
+      '<head>',
+      '<head><meta name="robots" content="noindex">',
+    );
+    put(join(route, 'index.html'), html);
+    put('sitemap.xml', `${read('sitemap.xml')}<loc>${ORIGIN}${route}</loc>`);
+    put(
+      'llms.txt',
+      `${read('llms.txt')}\n- [p](${ORIGIN}/docs/post/part-1.md): s`,
+    );
+    put(
+      'llms-full.txt',
+      `${read('llms-full.txt')}\nSource: ${ORIGIN}${route}\n`,
+    );
+    expect(checkDist(dist)).toEqual([
+      `${route}: a noindex page has a canonical link`,
+      `${route}: a noindex page in sitemap.xml`,
+      `${route}: a noindex page in llms.txt`,
+      `${route}: a noindex page in llms-full.txt`,
+      `sitemap.xml: ${ORIGIN}${route} is not a built page`,
+    ]);
+  });
+
+  it('checks the twin and the image of a noindex page', () => {
+    const route = '/docs/post/part-1/';
+    hiddenPage(route);
+    rmSync(join(dist, 'docs/post/part-1.md'));
+    expect(checkDist(dist)).toEqual([
+      `${route}: no Markdown twin docs/post/part-1.md`,
+    ]);
   });
 
   it('reports a missing OpenGraph image file', () => {

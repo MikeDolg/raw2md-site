@@ -24,6 +24,8 @@ export function pageId(route: string): string {
   return id === '' ? 'index' : id;
 }
 
+const NOINDEX = /<meta name="robots" content="noindex\b/;
+
 function read(dist: string, path: string): string {
   return readFileSync(join(dist, path), 'utf8');
 }
@@ -40,7 +42,24 @@ function linkHref(html: string, attrs: string): string | undefined {
   return tag?.[1];
 }
 
-/** The problems of the built site; an empty list means every page is reachable by every route a crawler uses. */
+function fileProblems(dist: string, route: string, html: string): string[] {
+  const id = pageId(route);
+  const problems: string[] = [];
+  if (!existsSync(join(dist, `${id}.md`)))
+    problems.push(`${route}: no Markdown twin ${id}.md`);
+  if (linkHref(html, 'rel="alternate" type="text/markdown"') !== `/${id}.md`)
+    problems.push(`${route}: no alternate link to /${id}.md`);
+  const image = metaContent(html, 'og:image');
+  if (image === undefined) problems.push(`${route}: no og:image`);
+  else if (!existsSync(join(dist, new URL(image).pathname)))
+    problems.push(`${route}: the file of og:image ${image} is missing`);
+  return problems;
+}
+
+/**
+ * The problems of the built site. An empty list means every page is reachable
+ * by every route a crawler uses, and a `noindex` page by none of the lists.
+ */
 export function checkDist(dist: string): string[] {
   const problems: string[] = [];
   const sitemap = new Set(
@@ -50,12 +69,27 @@ export function checkDist(dist: string): string[] {
   );
   const llms = read(dist, 'llms.txt');
   const llmsFull = read(dist, 'llms-full.txt');
+  const sources = [...llmsFull.matchAll(/^Source: (\S+)$/gm)].map(
+    (m) => new URL(m[1] ?? '').pathname,
+  );
   const canonicals = new Set<string>();
 
   for (const route of builtRoutes(dist)) {
     const id = pageId(route);
     const html = read(dist, join(route, 'index.html'));
     const canonical = linkHref(html, 'rel="canonical"');
+    if (NOINDEX.test(html)) {
+      if (canonical !== undefined)
+        problems.push(`${route}: a noindex page has a canonical link`);
+      if ([...sitemap].some((loc) => new URL(loc).pathname === route))
+        problems.push(`${route}: a noindex page in sitemap.xml`);
+      if (llms.includes(`/${id}.md)`))
+        problems.push(`${route}: a noindex page in llms.txt`);
+      if (sources.includes(route))
+        problems.push(`${route}: a noindex page in llms-full.txt`);
+      problems.push(...fileProblems(dist, route, html));
+      continue;
+    }
     if (canonical === undefined) {
       problems.push(`${route}: no canonical link`);
       continue;
@@ -68,19 +102,11 @@ export function checkDist(dist: string): string[] {
         `${route}: the canonical link ${canonical} names another page`,
       );
     if (!sitemap.has(canonical)) problems.push(`${route}: not in sitemap.xml`);
-    if (!existsSync(join(dist, `${id}.md`)))
-      problems.push(`${route}: no Markdown twin ${id}.md`);
-    if (linkHref(html, 'rel="alternate" type="text/markdown"') !== `/${id}.md`)
-      problems.push(`${route}: no alternate link to /${id}.md`);
     if (!llms.includes(`](${origin}/${id}.md)`))
       problems.push(`${route}: not in llms.txt`);
     if (!llmsFull.includes(`Source: ${canonical}\n`))
       problems.push(`${route}: not in llms-full.txt`);
-
-    const image = metaContent(html, 'og:image');
-    if (image === undefined) problems.push(`${route}: no og:image`);
-    else if (!existsSync(join(dist, new URL(image).pathname)))
-      problems.push(`${route}: the file of og:image ${image} is missing`);
+    problems.push(...fileProblems(dist, route, html));
   }
 
   for (const loc of sitemap)
