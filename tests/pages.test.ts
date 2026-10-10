@@ -210,6 +210,18 @@ describe('buildSite', () => {
     );
   });
 
+  it('skips the links of a section that the page leaves out', () => {
+    const files = {
+      ...FILES,
+      'README.md': README.replace(
+        '## Install\n',
+        '## Install\n\nSee [this](#install).\n',
+      ),
+    };
+    const { pages } = buildSite(tree(files), SOURCES);
+    expect(page(pages, '/install/').markdown).toContain('[this](#install)');
+  });
+
   it('fails on a link to a missing file', () => {
     const files = {
       ...FILES,

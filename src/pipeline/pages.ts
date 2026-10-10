@@ -206,6 +206,7 @@ class Linker {
 function render(draft: Draft, linker: Linker): Page {
   const replacements: Edit[] = [];
   for (const link of draft.outline.links) {
+    if (isInside(link.start, draft.deletions)) continue;
     const url = linker.resolve(link.url, link.image, draft);
     if (url !== undefined)
       replacements.push({ start: link.start, end: link.end, text: url });

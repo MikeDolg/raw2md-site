@@ -163,6 +163,10 @@
   white-space: nowrap;
 }
 
+.site [hidden] {
+  display: none !important;
+}
+
 .skip {
   position: absolute;
   left: var(--space-4);
