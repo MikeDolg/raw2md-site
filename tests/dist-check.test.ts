@@ -187,6 +187,31 @@ describe('checkDist', () => {
     ]);
   });
 
+  it('reports the broken formulas of a page, noindex or not', () => {
+    const route = '/docs/post/part-1/';
+    hiddenPage(route);
+    const html = read(join(route, 'index.html'));
+    put(
+      join(route, 'index.html'),
+      html.replace(
+        '<body>',
+        '<body><span class="katex-error">\\frac{</span>' +
+          '<mstyle mathcolor="#cc0000"><mtext>\\foo</mtext></mstyle>',
+      ),
+    );
+    put(
+      'docs/index.html',
+      pageHtml('/docs/').replace(
+        '<body>',
+        '<body><span class="katex-error">x</span>',
+      ),
+    );
+    expect(checkDist(dist)).toEqual([
+      '/docs/: formulas that KaTeX cannot render: 1',
+      `${route}: formulas that KaTeX cannot render: 2`,
+    ]);
+  });
+
   it('checks the twin and the image of a noindex page', () => {
     const route = '/docs/post/part-1/';
     hiddenPage(route);

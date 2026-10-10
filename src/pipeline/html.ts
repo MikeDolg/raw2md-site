@@ -1,6 +1,11 @@
 import GithubSlugger from 'github-slugger';
 import type { Element, ElementContent } from 'hast';
-import type { HastPluginEntry, HastVisitorContext } from 'satteri';
+import katex from 'katex';
+import type {
+  HastPluginEntry,
+  HastVisitorContext,
+  MdastPluginEntry,
+} from 'satteri';
 
 const NUMBER = /^[+\-−]?\d[\d.,]*\s?%?$/;
 const PLACEHOLDER = /^[–—-]$/;
@@ -19,6 +24,33 @@ function elements(node: Readonly<Element>, tagName?: string): Element[] {
     (c): c is Element =>
       c.type === 'element' && (tagName === undefined || c.tagName === tagName),
   );
+}
+
+function hasClass(node: Readonly<Element>, name: string): boolean {
+  const classes = node.properties['className'];
+  return Array.isArray(classes) && classes.map(String).includes(name);
+}
+
+/**
+ * A formula as MathML, which the browser draws without CSS or JS. A broken
+ * formula keeps its source in a `katex-error` span, and the dist check fails.
+ * A display formula scrolls in a focusable box, as a wide table does.
+ */
+function formula(
+  code: Readonly<Element>,
+  display: boolean,
+  ctx: HastVisitorContext,
+): Element | { type: 'raw'; value: string } {
+  const value = katex.renderToString(ctx.textContent(code), {
+    output: 'mathml',
+    displayMode: display,
+    throwOnError: false,
+    strict: 'ignore',
+  });
+  if (!display) return { type: 'raw', value };
+  return el('div', { className: ['formula'], tabIndex: 0 }, [
+    { type: 'raw', value },
+  ]);
 }
 
 /** A code block with a head line: its language and a Copy button. */
@@ -133,6 +165,24 @@ function arrowList(list: Readonly<Element>, ctx: HastVisitorContext): void {
 }
 
 /**
+ * A paragraph that holds one `$$...$$` and nothing else becomes a display
+ * formula, as GitHub draws it. The parser reads a one-line `$$...$$` as
+ * inline math, and `\tag` or `split` fail in inline mode.
+ */
+export const soleDisplayMath: MdastPluginEntry = () => ({
+  name: 'sole-display-math',
+  options: { position: true },
+  paragraph(node, ctx) {
+    const [only, ...rest] = node.children;
+    if (only?.type !== 'inlineMath' || rest.length > 0) return undefined;
+    const start = only.position?.start.offset;
+    if (start === undefined || !ctx.source.startsWith('$$', start))
+      return undefined;
+    return { type: 'math', value: only.value };
+  },
+});
+
+/**
  * Site markup for rendered Markdown. The heading ids follow the slugs of
  * Astro, so the anchor and the table of contents point at the same id.
  */
@@ -142,9 +192,29 @@ export const siteHtml: HastPluginEntry = () => {
   return {
     name: 'site-html',
     element: {
-      filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'table', 'ul'],
+      filter: [
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'pre',
+        'code',
+        'table',
+        'ul',
+      ],
       visit(node, ctx) {
-        if (node.tagName === 'pre') return codeBlock(node, ctx);
+        if (node.tagName === 'code')
+          return hasClass(node, 'math-inline')
+            ? formula(node, false, ctx)
+            : undefined;
+        if (node.tagName === 'pre') {
+          const code = elements(node, 'code')[0];
+          return code && hasClass(code, 'math-display')
+            ? formula(code, true, ctx)
+            : codeBlock(node, ctx);
+        }
         if (node.tagName === 'table') return wrapTable(node, ++tables, ctx);
         if (node.tagName === 'ul') return arrowList(node, ctx);
         const existing = node.properties['id'];

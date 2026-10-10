@@ -25,6 +25,8 @@ export function pageId(route: string): string {
 }
 
 const NOINDEX = /<meta name="robots" content="noindex\b/;
+/** KaTeX marks a formula it cannot parse, and paints an unknown command in its error color. */
+const BROKEN_FORMULA = /class="katex-error"|mathcolor="#cc0000"/g;
 
 function read(dist: string, path: string): string {
   return readFileSync(join(dist, path), 'utf8');
@@ -78,6 +80,9 @@ export function checkDist(dist: string): string[] {
     const id = pageId(route);
     const html = read(dist, join(route, 'index.html'));
     const canonical = linkHref(html, 'rel="canonical"');
+    const broken = html.match(BROKEN_FORMULA)?.length ?? 0;
+    if (broken > 0)
+      problems.push(`${route}: formulas that KaTeX cannot render: ${broken}`);
     if (NOINDEX.test(html)) {
       if (canonical !== undefined)
         problems.push(`${route}: a noindex page has a canonical link`);

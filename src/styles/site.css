@@ -459,6 +459,26 @@
   white-space: break-spaces;
 }
 
+/* Formulas: one font on every platform; Safari has it installed, so local() goes first. */
+@font-face {
+  font-family: 'STIX Two Math';
+  font-display: swap;
+  src:
+    local('STIX Two Math'),
+    local('STIXTwoMath-Regular'),
+    url('/fonts/STIXTwoMath-Regular.woff2') format('woff2');
+}
+
+.site math {
+  font-family: 'STIX Two Math', math;
+}
+
+.formula {
+  overflow-x: auto;
+  margin: 0 0 var(--space-5);
+  padding: var(--space-2) 0;
+}
+
 /* Tables */
 .table-box {
   overflow-x: auto;
@@ -638,7 +658,8 @@
 .prose > p,
 .prose > ul,
 .prose > ol,
-.prose > blockquote {
+.prose > blockquote,
+.prose > .formula {
   max-width: var(--measure);
 }
 

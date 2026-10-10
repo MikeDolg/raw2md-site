@@ -1,11 +1,12 @@
 import { markdownToHtml } from 'satteri';
 import { describe, expect, it } from 'vitest';
-import { siteHtml } from '../src/pipeline/html';
+import { siteHtml, soleDisplayMath } from '../src/pipeline/html';
 
 async function render(markdown: string): Promise<string> {
   const { html } = await markdownToHtml(markdown, {
+    mdastPlugins: [soleDisplayMath],
     hastPlugins: [siteHtml],
-    features: { gfm: true },
+    features: { gfm: true, math: true },
   });
   return html;
 }
@@ -67,6 +68,54 @@ describe('siteHtml', () => {
         '<span class="arrow" aria-hidden="true">→</span>' +
         '<span class="res">their text</span></li>',
     );
+  });
+
+  it('renders an inline formula as MathML in the running text', async () => {
+    const html = await render('Let $a^2$ be.\n');
+    expect(html).toContain(
+      '<p>Let <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML">' +
+        '<semantics><mrow><msup><mi>a</mi><mn>2</mn></msup></mrow>' +
+        '<annotation encoding="application/x-tex">a^2</annotation></semantics></math></span> be.</p>',
+    );
+  });
+
+  it('renders a display formula as block MathML in a focusable box', async () => {
+    const html = await render('$$\nx = 1\n$$\n');
+    expect(html).toMatch(
+      /^<div class="formula" tabindex="0"><span class="katex"><math [^>]*display="block">/,
+    );
+    expect(html).not.toContain('<pre>');
+  });
+
+  it('puts the number of a tagged formula in its own cell', async () => {
+    const html = await render('$$\nF = m a \\tag{12}\n$$\n');
+    expect(html).toContain('<mtd><mtext>(12)</mtext></mtd>');
+  });
+
+  it('draws a paragraph of one $$ formula as a display formula', async () => {
+    const html = await render('$$ F = m a \\tag{12}$$\n');
+    expect(html).toMatch(/^<div class="formula" tabindex="0">/);
+    expect(html).toContain('display="block"');
+    expect(html).toContain('<mtd><mtext>(12)</mtext></mtd>');
+  });
+
+  it('keeps $$ inside running text and a lone $ formula inline', async () => {
+    const html = await render('Text $$a$$ here.\n\n$b$\n');
+    expect(html).not.toContain('formula');
+    expect(html).not.toContain('display="block"');
+  });
+
+  it('marks a broken formula with katex-error and keeps its source', async () => {
+    const html = await render('$\\frac{1}{$\n');
+    expect(html).toContain('class="katex-error"');
+    expect(html).toContain('\\frac{1}{');
+  });
+
+  it('keeps a dollar sign in code as code', async () => {
+    const html = await render('`$x$` and\n\n```\n$$ y $$\n```\n');
+    expect(html).toContain('<code>$x$</code>');
+    expect(html).toContain('<pre><code>$$ y $$</code></pre>');
+    expect(html).not.toContain('katex');
   });
 
   it('keeps a list as it is when one item has no arrow', async () => {
