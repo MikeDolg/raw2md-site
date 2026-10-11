@@ -38,6 +38,8 @@ export const manifest: SourceSpec[] = [
       {
         route: '/',
         title: 'raw2md',
+        summary:
+          'raw2md is an open-source command-line tool that converts PDF, DjVu, and DOCX documents into clean Markdown for RAG and LLM pipelines.',
         intro: true,
         keep: [
           'What does raw2md fix?',
