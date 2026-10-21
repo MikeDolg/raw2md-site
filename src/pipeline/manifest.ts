@@ -53,7 +53,7 @@ export const manifest: SourceSpec[] = [
         route: '/install/',
         title: 'Install and update',
         summary:
-          'Install raw2md with uv or pip on Linux or Windows, with the CUDA build of PyTorch for marker and pandoc for DOCX, then update or uninstall it.',
+          'Install raw2md with uv or pip on Linux or Windows, with the CUDA build of PyTorch for raw2md-engine and pandoc for DOCX, then update or uninstall it.',
         keep: ['Installation', 'Update', 'Uninstall'],
       },
       {

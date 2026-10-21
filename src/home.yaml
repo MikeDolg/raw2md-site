@@ -24,10 +24,10 @@ labels:
 faq:
   - question: Does raw2md need a GPU?
     answer: >-
-      For `marker`, yes: an NVIDIA GPU of the Turing generation or newer
-      (GTX 16xx, RTX 20xx, and later cards) with driver 580 or newer. Without
-      such a card, `marker` runs on the CPU. This mode is very slow, and
-      raw2md does not support it.
+      For `raw2md-engine`, yes: an NVIDIA GPU of the Turing generation or
+      newer (GTX 16xx, RTX 20xx, and later cards) with 4 GB of VRAM or more
+      and driver 580 or newer. Without such a card, the engine runs on the
+      CPU. This mode works, but it is much slower.
   - question: Do my documents leave my machine?
     answer: >-
       Not without the LLM stages. Inspection sends the source pages and the
