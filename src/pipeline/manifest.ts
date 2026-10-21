@@ -77,7 +77,7 @@ export const manifest: SourceSpec[] = [
       {
         route: '/benchmarks/',
         summary:
-          'Scores of the marker output before and after raw2md on the MPDocBench-Parse benchmark, for each element type.',
+          'Scores of the raw2md-engine output before and after raw2md on the MPDocBench-Parse benchmark, for each element type.',
       },
     ],
   },
