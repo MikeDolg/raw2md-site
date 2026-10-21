@@ -8,12 +8,12 @@ install: uv tool install raw2md --torch-backend cu130
 facts:
   - Python CLI
   - Linux · Windows
-  - MIT
+  - GPL-3.0-or-later
 intro: Overview
 # The SoftwareApplication facts of the JSON-LD.
 app:
   operatingSystem: Linux, Windows
-  license: https://spdx.org/licenses/MIT.html
+  license: https://spdx.org/licenses/GPL-3.0-or-later.html
 # The label column of each README section, by its heading.
 labels:
   What does raw2md fix?: Repairs
