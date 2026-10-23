@@ -4,7 +4,7 @@ tagline: >-
   with deterministic repair of converter defects.
 # The page title after "raw2md: ", and the heading of the OpenGraph card.
 headline: Clean Markdown from PDF, DjVu, and DOCX
-install: uv tool install raw2md --torch-backend cu130
+install: 'uv tool install --python ">=3.11,<3.15" raw2md --torch-backend cu130'
 facts:
   - Python CLI
   - Linux · Windows
